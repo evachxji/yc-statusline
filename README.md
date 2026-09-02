@@ -44,7 +44,17 @@ h/w 百分比随用量变色：`<70%` 绿、`70–89%` 橙、`≥90%` 红。
 
 ## 安装
 
-### 方式一：命令行一键安装
+### 方式一：Agent 提示词安装（推荐）
+
+如果你正在用 Claude Code（或其他 AI 编程助手），直接把下面这段贴给它：
+
+```text
+帮我安装 yc-statusline 作为 Claude Code 状态栏：先读 https://raw.githubusercontent.com/evachxji/yc-statusline/main/INSTALL.md 并按它执行（链接打不开就先 clone https://github.com/evachxji/yc-statusline 再读仓库里的 INSTALL.md），装完自测并告诉我结果。
+```
+
+### 方式二：命令行一键安装
+
+习惯自己动手的话：
 
 macOS / Linux / Windows Git Bash：
 
@@ -64,14 +74,6 @@ git clone https://github.com/evachxji/yc-statusline.git "$env:USERPROFILE\.local
 
 ```bash
 git -C ~/.local/share/yc-statusline pull
-```
-
-### 方式二：Agent 提示词安装
-
-如果你正在用 Claude Code（或其他 AI 编程助手），直接把下面这段贴给它：
-
-```text
-帮我安装 yc-statusline 作为 Claude Code 状态栏：先读 https://raw.githubusercontent.com/evachxji/yc-statusline/main/INSTALL.md 并按它执行（链接打不开就先 clone https://github.com/evachxji/yc-statusline 再读仓库里的 INSTALL.md），装完自测并告诉我结果。
 ```
 
 ## 卸载 / 还原
