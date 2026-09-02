@@ -71,12 +71,7 @@ git -C ~/.local/share/yc-statusline pull
 如果你正在用 Claude Code（或其他 AI 编程助手），直接把下面这段贴给它：
 
 ```text
-帮我安装 yc-statusline 作为 Claude Code 的状态栏（仓库 https://github.com/evachxji/yc-statusline）：
-1. git clone 到 ~/.local/share/yc-statusline（已存在则 git pull），然后运行 python ~/.local/share/yc-statusline/install.py
-2. 改 ~/.claude/settings.json 之前必须先备份；如果我已有其他 statusLine（比如 claude-hud），先告诉我确认后再替换
-3. Windows 下 statusLine 命令必须是 bash 语法的 `PYTHONIOENCODING=utf-8 python "<绝对路径>"`（Claude Code 在 Windows 用 git bash 执行；不加前缀 Python 会按 GBK 输出进度条字符直接崩溃）——install.py 已自动处理，手动改的话注意
-4. 如果我使用 CC Switch 切换供应商：还需把 ~/.cc-switch/cc-switch.db 里 settings 表 common_config_claude 中的 statusLine 也改成同一条命令，否则切换供应商时会被覆盖回旧配置
-5. 完成后用模拟 stdin JSON 管道测试一次：echo -n '{"model":{"display_name":"test"},"context_window":{"used_percentage":30}}' | <statusLine 命令>，确认输出正常再告诉我
+帮我安装 yc-statusline 作为 Claude Code 状态栏：先读 https://raw.githubusercontent.com/evachxji/yc-statusline/main/INSTALL.md 并按它执行（链接打不开就先 clone https://github.com/evachxji/yc-statusline 再读仓库里的 INSTALL.md），装完自测并告诉我结果。
 ```
 
 ## 卸载 / 还原
