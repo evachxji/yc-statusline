@@ -428,7 +428,7 @@ def format_provider_usage(usage: ProviderUsage) -> str:
             f"{symbols.get(balance.currency, balance.currency + ' ')}{balance.total:.2f}"
             for balance in usage.balances
         ]
-        return f"DeepSeek 余额 {'/'.join(values)}" if values else ""
+        return f"DS {'/'.join(values)}" if values else ""
     if usage.provider == "kimi_coding":
         values = []
         for window in usage.quotas:

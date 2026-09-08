@@ -31,7 +31,7 @@ h/w 百分比随用量变色：`<70%` 绿、`70–89%` 橙、`≥90%` 红。
 | 你的 Claude Code 接入 | 状态栏显示 |
 |---|---|
 | Kimi Coding Plan（`https://api.kimi.com/coding`） | `h18% 4h9m w80% 16h9m`（5h/周额度 + 重置倒计时） |
-| DeepSeek 官方（`https://api.deepseek.com`） | `DeepSeek 余额 ¥86.42` |
+| DeepSeek 官方（`https://api.deepseek.com`） | `DS ¥86.42` |
 | Claude 官方账号 | `Usage` / `Weekly` 用量进度条（5h/7d） |
 | 其他中转站 | 不查询（避免把代理额度误报成官方余额），只显示模型名/Context/token |
 
