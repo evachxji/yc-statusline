@@ -368,10 +368,14 @@ def format_tok_rate(rate: float) -> str:
 def read_recent_output_rate(
     transcript_path: Path, window_seconds: int = RATE_WINDOW_SECONDS
 ) -> Optional[float]:
-    """滚动窗口输出速率（tok/s）。
+    """滚动窗口净生成速率（tok/s）。
 
-    参考 claudia-statusline：窗口内 assistant 消息的 output_tokens 去重求和，
-    除以有效时长（消息实际跨度，最长取窗口长度，最短 1 秒）；
+    分母口径对齐 deepseek-harness 的 decode throughput（只算模型真正吐字的时间）：
+    DSH 用自己协议里的 completedTime - firstTokenTime，而 Claude Code 的 transcript
+    不含 timing 字段，首 token 延迟无从剔除，因此这里剔除数据可得的另两段非生成
+    时间——工具执行（tool_use → tool_result）与用户思考（上一 step 完成到下一次
+    真实输入）。分子仍是窗口内 assistant 消息的 output_tokens 去重求和（一次响应
+    会按 content block 拆成多行，共享同一 message.id 与总 token 数）；
     窗口内仅一条消息时用 now - 该消息时间作分母，空闲时速率自然衰减到隐藏。
     """
     try:
@@ -387,38 +391,97 @@ def read_recent_output_rate(
 
     now = time.time()
     cutoff = now - window_seconds
-    earliest: Optional[float] = None
-    latest: Optional[float] = None
-    sum_output = 0
-    seen_ids = set()
+    step_tokens: Dict[str, int] = {}
+    step_at: Dict[str, float] = {}
+    tool_start: Dict[str, float] = {}
+    tool_end: Dict[str, float] = {}
+    prompts = []  # 真实用户输入时刻（tool_result 回包不算）
 
     for line in data.decode("utf-8", errors="ignore").splitlines():
-        if '"assistant"' not in line:
+        if '"assistant"' not in line and '"user"' not in line:
             continue
         try:
             entry = json.loads(line)
         except ValueError:
             continue
-        message = entry.get("message") or {}
-        if message.get("role") != "assistant":
-            continue
         ts = parse_reset_at(entry.get("timestamp"))
         if ts is None or ts < cutoff:
             continue
-        msg_id = message.get("id") or entry.get("uuid") or ""
-        if msg_id:
-            if msg_id in seen_ids:
-                continue
-            seen_ids.add(msg_id)
-        sum_output += (message.get("usage") or {}).get("output_tokens") or 0
-        earliest = ts if earliest is None else min(earliest, ts)
-        latest = ts if latest is None else max(latest, ts)
+        message = entry.get("message") or {}
+        role = message.get("role")
+        content = message.get("content")
 
-    if latest is None:
+        if role == "assistant":
+            msg_id = message.get("id") or entry.get("uuid") or ""
+            if msg_id:
+                if msg_id not in step_tokens:
+                    step_tokens[msg_id] = (message.get("usage") or {}).get("output_tokens") or 0
+                # 同一次响应按 content block 分多行写入，取最后一块作为完成时刻
+                step_at[msg_id] = ts
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        call_id = block.get("id")
+                        if isinstance(call_id, str) and call_id:
+                            tool_start.setdefault(call_id, ts)
+            continue
+
+        if role != "user":
+            continue
+        if isinstance(content, str):
+            prompts.append(ts)
+        elif isinstance(content, list):
+            results = [
+                block for block in content
+                if isinstance(block, dict) and block.get("type") == "tool_result"
+            ]
+            if results:
+                for block in results:
+                    call_id = block.get("tool_use_id")
+                    if isinstance(call_id, str) and call_id:
+                        tool_end[call_id] = ts
+            else:
+                prompts.append(ts)
+
+    if not step_at:
         return None
+
+    stamps = sorted(step_at.values())
+    earliest, latest = stamps[0], stamps[-1]
     span = (now - earliest) if earliest == latest else (latest - earliest)
-    effective = max(1.0, min(span, float(window_seconds)))
-    return sum_output / effective
+    span = min(span, float(window_seconds))
+    lo, hi = earliest, earliest + span
+
+    # 工具执行与用户思考区间会互相重叠（并行工具、打断后补发），
+    # 取并集再扣除，避免重叠时段被重复计入而压低净时间
+    blocked = []
+    for call_id, start in tool_start.items():
+        end = tool_end.get(call_id)
+        if end is not None:  # 未收尾的调用（中断/失败）无终止时刻，不计
+            blocked.append((start, end))
+    for prompt in prompts:
+        before = [t for t in stamps if t < prompt]
+        if before:
+            blocked.append((before[-1], prompt))
+
+    non_generating = 0.0
+    cur_start: Optional[float] = None
+    cur_end: Optional[float] = None
+    for start, end in sorted(blocked):
+        start, end = max(start, lo), min(end, hi)
+        if end <= start:
+            continue
+        if cur_end is None or start > cur_end:
+            if cur_end is not None:
+                non_generating += cur_end - cur_start
+            cur_start, cur_end = start, end
+        else:
+            cur_end = max(cur_end, end)
+    if cur_end is not None:
+        non_generating += cur_end - cur_start
+
+    net = max(1.0, span - non_generating)
+    return sum(step_tokens.values()) / net
 
 
 def format_provider_usage(usage: ProviderUsage) -> str:

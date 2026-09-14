@@ -4,7 +4,7 @@ Claude Code 底部状态栏：一行看清当前模型、目录/git 分支、上
 
 > A one-line statusline for Claude Code: model, dir/git branch, context usage, third-party provider quota (Kimi Coding Plan / DeepSeek balance), session tokens and live output rate (tok/s). Pure Python stdlib, no dependencies. Windows / macOS / Linux.
 
-基于 [0xYubo/claude-statusline](https://github.com/0xYubo/claude-statusline)（MIT）深度定制，token 速率算法参考 [hagan/claudia-statusline](https://github.com/hagan/claudia-statusline)。
+基于 [0xYubo/claude-statusline](https://github.com/0xYubo/claude-statusline)（MIT）深度定制；输出速率口径对齐 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 decode throughput（详见下文「输出速率怎么算的」）。
 
 ## 效果
 
@@ -20,7 +20,7 @@ Claude Code 底部状态栏：一行看清当前模型、目录/git 分支、上
 | `h18% 4h9m` | **5 小时窗口**：用量 18%，4 小时 9 分后重置 |
 | `w80% 16h9m` | **周窗口**：用量 80%，16 小时 9 分后重置 |
 | `12.3K tok` | 本会话累计 token（按 message.id 去重） |
-| `80 tok/s` | 实时输出速率：最近 300 秒滚动窗口的 output tokens/秒 |
+| `80 tok/s` | 净生成速率：最近 300 秒窗口的 output tokens ÷ **净生成时间**（剔除工具执行与用户思考） |
 
 h/w 百分比随用量变色：`<70%` 绿、`70–89%` 橙、`≥90%` 红。
 
@@ -95,13 +95,19 @@ CC Switch 切换时会把它数据库里的"公共配置"合并进 `settings.jso
 **DeepSeek 余额不显示？**
 需要 `ANTHROPIC_BASE_URL` 主机为 `api.deepseek.com`（官方直连）。中转站地址不会触发余额查询，这是有意设计。
 
+**输出速率怎么算的？**
+分子是最近 300 秒内 assistant 消息的 output tokens（按 `message.id` 去重，一次响应会按 content block 拆成多行）。分母是**净生成时间**——窗口跨度减去工具执行（`tool_use` → `tool_result`）与用户思考（上一 step 完成到下一次真实输入），两者取**并集**扣除（并行工具调用的时间区间会重叠，简单相加会重复扣减、让速率虚高）。口径对齐 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 decode throughput。
+
+受数据源限制，**首 token 延迟（TTFT）无法剔除**：Claude Code 的 transcript 只有写入时间戳，没有 step 起止 timing 字段，而 DSH 用的是自己协议里的 `completedTime - firstTokenTime`。所以数值仍会略低于纯解码速度。
+
 **输出速率什么时候显示？**
 最近 5 分钟内有 assistant 消息才显示；空闲超过 5 分钟自动隐藏。流式生成中的消息要等该条落盘后才计入，所以看到的是最近已完成的输出速率。
 
 ## 致谢
 
 - [0xYubo/claude-statusline](https://github.com/0xYubo/claude-statusline) — 上游基础（供应商识别、用量解析、多会话缓存）
-- [hagan/claudia-statusline](https://github.com/hagan/claudia-statusline) — token 滚动窗口速率算法参考
+- [hagan/claudia-statusline](https://github.com/hagan/claudia-statusline) — 滚动窗口速率的早期参考
+- [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) — 净生成时间（decode throughput）口径参考
 
 ## License
 
